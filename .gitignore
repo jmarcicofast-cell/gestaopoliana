@@ -1,13 +1,5 @@
-# Sistema operacional
-.DS_Store
-Thumbs.db
-Desktop.ini
-
-# Editores
-.vscode/
-.idea/
-
-# Arquivos temporários e backups
-*.tmp
-*.bak
-*~
+.env*
+*.pem
+node_modules/
+.qa*
+*backup*.json
