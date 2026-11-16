@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {stateSchema,emptyState} from '../lib/team-state.ts';
+const s=emptyState();assert(stateSchema.safeParse(s).success);
+const r={id:1,d:'2026-11-16',u:'Televendas',g:'Teste',tq:2,tv:70000,cq:1,cv:75000,ov:5000,m2:2400};
+assert(stateSchema.safeParse({...s,res:[r]}).success);
+for(const bad of [{...r,tq:-1},{...r,tq:1.5},{...r,d:'2026-02-30'},{...r,g:''}])assert(!stateSchema.safeParse({...s,res:[bad]}).success);
+assert(!stateSchema.safeParse({...s,res:[r,{...r,id:2}]}).success);
+assert(!stateSchema.safeParse({...s,aco:[{id:1,d:r.d,u:r.u,p:'Guia',q:0,v:100}]}).success);
+assert(!stateSchema.safeParse({...s,lan:[{id:1,d:r.d,u:r.u,vd:'Teste',r:'Cliente novo',c:'',q:1,v:50,s:'Inválido'}]}).success);
+console.log('PASS: estado inicial, registro válido, valores negativos, cargas inteiras, datas impossíveis, gerente vazio, resumo duplicado, quantidade de aço e status.');

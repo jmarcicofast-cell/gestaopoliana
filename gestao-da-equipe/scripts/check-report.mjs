@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {buildReportMetrics} from '../public/report-metrics.mjs';
+const blank={res:[],aco:[],lan:[],metas:{}};
+const filter={from:'2026-11-01',to:'2026-11-16',units:['Televendas','Atacado BA']};
+let m=buildReportMetrics(blank,filter);
+assert.equal(m.current.revenue,0);assert.equal(m.current.ticket,null);assert.equal(m.current.change,null);assert.equal(m.goals.achieved,null);assert.equal(m.previousFrom,'2026-10-16');assert.equal(m.previousTo,'2026-10-31');
+const state={...blank,res:[{d:'2026-11-16',u:'Televendas',tq:2,tv:70000,cq:1,cv:75000,ov:5000,m2:2400},{d:'2026-11-02',u:'Atacado BA',tq:1,tv:50000,cq:0,cv:0,ov:0,m2:1000},{d:'2026-10-16',u:'Televendas',tq:2,tv:100000,cq:0,cv:0,ov:0,m2:1500},{d:'2026-11-16',u:'Lojas Rio',tv:999999,tq:0,cq:0,cv:0,ov:0,m2:0}],aco:[{d:'2026-11-16',u:'Televendas',p:'Guia',q:100,v:1200},{d:'2026-11-16',u:'Atacado BA',p:'Montante',q:50,v:1000}],lan:[{d:'2026-11-16',u:'Televendas',v:100,s:'Pago'},{d:'2026-11-02',u:'Atacado BA',v:200,s:'Abrir chamado para pagamento'},{d:'2026-11-03',u:'Televendas',v:50,s:'Aguardando pagamento'}],metas:{'2026-11':{Televendas:{val:300000,av:2400,aq:200},'Atacado BA':{val:100000}}}};
+const before=JSON.stringify(state);m=buildReportMetrics(state,filter);
+assert.equal(m.current.revenue,200000);assert.equal(m.current.loads,4);assert.equal(m.current.ticket,48750);assert.equal(m.current.area,3400);assert.equal(m.current.change,100);assert.equal(m.steel.value,2200);assert.equal(m.steel.quantity,150);assert.equal(m.awards.total,350);assert.equal(m.awards.paid,100);assert.equal(m.awards.unpaid,250);assert.equal(m.goals.target,400000);assert.equal(m.goals.achieved,50);assert.equal(m.goals.gap,200000);assert.equal(m.series.at(-1).cumulative,200000);assert.equal(m.series.at(-1).previousCumulative,100000);assert.equal(m.unitRows.reduce((s,u)=>s+u.revenue,0),m.current.revenue);assert.equal(m.steel.products.reduce((s,p)=>s+p.share,0),100);assert.equal(m.goals.rows.find(r=>r.unit==='Televendas').steelTarget,2400);
+let one=buildReportMetrics(state,{...filter,units:['Televendas']});assert.equal(one.current.revenue,150000);assert.equal(one.current.change,50);assert.equal(one.goals.achieved,50);
+let custom=buildReportMetrics(state,{...filter,from:'2026-11-16'});assert.equal(custom.current.revenue,150000);assert.equal(custom.goals.rows.find(r=>r.unit==='Atacado BA').revenue,50000);assert.equal(custom.series.length,1);
+let multi=buildReportMetrics(state,{...filter,from:'2026-10-01'});assert.equal(multi.sameMonth,false);assert.equal(multi.goals.target,null);assert(multi.series.length<=31);
+let partial=buildReportMetrics({...state,metas:{'2026-11':{Televendas:{val:300000}}}},filter);assert.equal(partial.goals.defined,1);assert.equal(partial.goals.achieved,50);
+let leap=buildReportMetrics(blank,{...filter,from:'2024-03-01',to:'2024-03-01'});assert.equal(leap.previousFrom,'2024-02-29');
+assert.equal(JSON.stringify(state),before);assert.throws(()=>buildReportMetrics(blank,{...filter,to:'2026-10-01'}));
+console.log('PASS: 38 assertions — totals, no steel duplication, ticket, filters, comparable dates, missing baselines, monthly/partial goals, awards, series, leap day and no state mutation.');

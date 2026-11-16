@@ -1,0 +1,11 @@
+import {env} from 'cloudflare:workers';
+import {stateSchema,emptyState} from '../../../lib/team-state';
+export const dynamic='force-dynamic';
+const json=(data:unknown,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+export async function GET(){try{const r=await env.DB!.prepare('SELECT data,revision,updated_at FROM team_state WHERE id=?').bind('main').first<{data:string,revision:number,updated_at:string}>();return json({state:r?JSON.parse(r.data):emptyState(),revision:r?.revision??0,updatedAt:r?.updated_at??null})}catch{return json({error:'Não foi possível carregar os dados. Tente novamente.'},503)}}
+export async function PUT(request:Request){
+// The owner-private platform access policy protects this shared team database.
+if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'Origem não autorizada.'},403);
+try{const raw=await request.text();if(raw.length>2000000)return json({error:'O backup deve ter até 2 MB.'},413);const b=JSON.parse(raw),parsed=stateSchema.safeParse(b.state);if(!parsed.success||!Number.isSafeInteger(b.revision)||b.revision<0)return json({error:'Dados inválidos. Confira nomes, datas, quantidades e valores.'},400);
+const current=await env.DB!.prepare('SELECT revision FROM team_state WHERE id=?').bind('main').first<{revision:number}>();if((current?.revision??0)!==b.revision)return json({error:'Outra aba ou dispositivo alterou os dados. Recarregue os dados online antes de salvar novamente.'},409);
+const updatedAt=new Date().toISOString();const row=await env.DB!.prepare('INSERT INTO team_state(id,data,revision,updated_at) VALUES (?,?,1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,revision=team_state.revision+1,updated_at=excluded.updated_at WHERE team_state.revision=? RETURNING revision').bind('main',JSON.stringify(parsed.data),updatedAt,b.revision).first<{revision:number}>();if(!row)return json({error:'Outra alteração foi salva. Recarregue os dados online.'},409);return json({revision:row.revision,updatedAt})}catch(e){return json({error:e instanceof SyntaxError?'JSON inválido.':'Não foi possível salvar. Os dados anteriores foram preservados.'},e instanceof SyntaxError?400:503)}}
